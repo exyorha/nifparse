@@ -112,6 +112,7 @@ namespace nifparse {
 		OPTION = 59,
 		DUP = 60,
 		BRANCHUNLESS = 61,
+		BRANCHIF = 62,
 		END = 255
 	};
 

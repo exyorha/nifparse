@@ -125,6 +125,7 @@ OP_COMPOUND = 58
 OP_OPTION = 59
 OP_DUP = 60
 OP_BRANCHUNLESS = 61
+OP_BRANCHIF = 62
 OP_END = 255
 
 BASIC_TYPES_OPCODES = {
@@ -187,7 +188,93 @@ def write_type_reference(type)
   end
 end
 
+def stack_delta_for_op(op)
+  case op
+  when Numeric, String
+    1
+
+  when Symbol
+    if op == :"!"
+      0
+    else
+      -1
+    end
+
+  else
+    raise "stack_delta_for_op is unimplemented for #{op.inspect}"
+  end
+end
+
+class ShortCircuitingBranchSource
+  attr_reader :branch_index
+  attr_reader :operator
+
+  def initialize(branch_index, operator)
+    @branch_index = branch_index
+    @operator = operator
+  end
+end
+
+class ShortCircuitingBranchTarget
+  attr_reader :branch_index
+
+  def initialize(branch_index)
+    @branch_index = branch_index
+  end
+end
+
+def perform_short_ciruiting!(expression)
+  stack_level = 0
+
+  stack_levels = expression.map do |operation|
+    stack_level += stack_delta_for_op operation
+    stack_level
+  end
+
+  branches = []
+
+  expression.each_with_index do |operation, index|
+    stack_level = stack_levels[index]
+
+    if operation == :"||" || operation == :"&&"
+      (index - 1).downto(0).each do |prev_op_index|
+        prev_op = expression[prev_op_index]
+
+        prev_stack_level = stack_levels[prev_op_index]
+
+        if prev_stack_level == stack_level
+          branches.push [ index, prev_op_index, operation ]
+          break
+        end
+      end
+    end
+  end
+
+  insns_inserted = 0
+  (0...expression.size).each do |index|
+    insn = expression[index + insns_inserted]
+
+    branches.each_with_index do |(branch_target, branch_source, operator), branch_index|
+      if index == branch_source
+        expression.insert(index + insns_inserted + 1, ShortCircuitingBranchSource.new(branch_index, operator))
+        insns_inserted += 1
+      end
+
+      if index == branch_target
+        expression.insert(index + insns_inserted + 1, ShortCircuitingBranchTarget.new(branch_index))
+        insns_inserted += 1
+      end
+    end
+  end
+
+  expression
+end
+
 def write_expression(expression, in_header = false)
+  perform_short_ciruiting! expression
+
+  fixups = Hash.new { |h, k| h[k] = [] }
+
   expression.each do |operation|
     case operation
     when Numeric
@@ -219,6 +306,23 @@ def write_expression(expression, in_header = false)
 
         @type_stream.write_varint @string_pool.get_string(item)
       end
+
+    when ShortCircuitingBranchSource
+      @type_stream.write_u8 OP_DUP
+
+      if operation.operator == :"&&"
+        @type_stream.write_u8 OP_BRANCHUNLESS
+      else
+        @type_stream.write_u8 OP_BRANCHIF
+      end
+
+      fixups[operation.branch_index].push @type_stream.write_branch_fixup
+
+    when ShortCircuitingBranchTarget
+      fixups[operation.branch_index].each do |fixup|
+        @type_stream.resolve_fixup fixup
+      end
+
     else
       raise "bad value in expression: #{expression}"
     end
@@ -248,8 +352,6 @@ type_stream_io = StringIO.new "".force_encoding("BINARY")
 type_index = {}
 
 @desc.types.each do |type_name, type|
-  next unless type_name == "Header"
-
   type_id = @string_pool.get_string(type_name)
 
   type_index[type_id] = type_stream_io.pos

@@ -127,6 +127,7 @@ namespace nifparse {
 			case Opcode::FIELD:
 			{
 				Symbol fieldName(m_bytecodeReader.readVarInt());
+				printf("Field %s: %d\n", fieldName.toString(), fieldPresent);
 				if (fieldPresent) {
 					if (m_mode == Mode::Deserialize) {
 						auto value = description.readValue(ctx);
@@ -300,6 +301,21 @@ namespace nifparse {
 					m_stack.pop_back();
 
 					if (value == 0) {
+						m_bytecodeReader.branch(static_cast<int>(displacement) - 2);
+					}
+				}
+				break;
+
+			case Opcode::BRANCHIF:
+				if (m_stack.empty())
+					throw std::runtime_error("stack underflow");
+
+				{
+					auto displacement = m_bytecodeReader.readU16();
+					auto value = m_stack.back();
+					m_stack.pop_back();
+
+					if (value != 0) {
 						m_bytecodeReader.branch(static_cast<int>(displacement) - 2);
 					}
 				}
