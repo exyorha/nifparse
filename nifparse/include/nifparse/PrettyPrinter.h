@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <nifparse/Types.h>
+#include <unordered_set>
 
 namespace nifparse {
 	class PrettyPrinter {
@@ -36,6 +37,8 @@ namespace nifparse {
 		void startLine();
 		void endLine();
 
+		void printReference(const std::shared_ptr<NIFVariant> &ref);
+
 	private:
 		enum class State {
 			StartOfLine,
@@ -45,6 +48,7 @@ namespace nifparse {
 		std::ostream &m_stream;
 		State m_state;
 		size_t m_level;
+		std::unordered_set<NIFVariant *> m_referencesPrinted;
 	};
 }
 

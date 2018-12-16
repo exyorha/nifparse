@@ -138,6 +138,10 @@ namespace nifparse {
 		printValueNoNewLine(ref.type.toString());
 		printValueNoNewLine("> ");
 		printValue(std::to_string(ref.target).c_str());
+
+		if (ref.ptr) {
+			printReference(ref.ptr);
+		}
 	}
 
 	void PrettyPrinter::doPrint(const NIFPointer &ref) {
@@ -145,8 +149,24 @@ namespace nifparse {
 		printValueNoNewLine(ref.type.toString());
 		printValueNoNewLine("> ");
 		printValue(std::to_string(ref.target).c_str());
+
+		auto ptr = ref.ptr.lock();
+		if (ptr) {
+			printReference(ptr);
+		}
 	}
 
+	void PrettyPrinter::printReference(const std::shared_ptr<NIFVariant> &ref) {
+		auto result = m_referencesPrinted.emplace(ref.get());
+
+		if (result.second) {
+			increaseLevel();
+
+			print(*ref);
+
+			decreaseLevel();
+		}
+	}
 
 	void PrettyPrinter::doPrint(float val) {
 		printValue(std::to_string(val).c_str());

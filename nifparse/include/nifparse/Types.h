@@ -121,11 +121,13 @@ namespace nifparse {
 	struct NIFReference {
 		Symbol type;
 		int32_t target;
+		std::shared_ptr<NIFVariant> ptr;
 	};
 
 	struct NIFPointer {
 		Symbol type;
 		int32_t target;
+		std::weak_ptr<NIFVariant> ptr;
 	};
 
 	struct NIFEnum {

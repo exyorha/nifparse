@@ -4,6 +4,8 @@
 #include <nifparse/PrettyPrinter.h>
 #include <nifparse/FileDataStream.h>
 
+#include <functional>
+
 namespace nifparse {
 	NIFFile::NIFFile() {
 
@@ -15,8 +17,7 @@ namespace nifparse {
 
 	void NIFFile::parse(std::iostream &ins) {
 		FileDataStream stream(ins);
-		NIFVariant headerVariant;
-		SerializerContext ctx(headerVariant, stream, false);
+		SerializerContext ctx(m_header, stream, false);
 
 		Serializer::deserialize(ctx, Symbol("Header"), ctx.header);
 
@@ -26,8 +27,7 @@ namespace nifparse {
 		auto &header = std::get<NIFDictionary>(ctx.header);
 		auto blockCount = header.getValue<uint32_t>(Symbol("Num Blocks"));
 
-		std::vector<NIFVariant> blocks;
-		blocks.reserve(blockCount);
+		m_blocks.reserve(blockCount);
 
 		Symbol symBlockTypeIndex("Block Type Index");
 		Symbol symSizedString("SizedString");
@@ -42,12 +42,10 @@ namespace nifparse {
 
 				Symbol blockType(std::get<NIFDictionary>(string).getValue<std::string>(symValue).c_str());
 
-				NIFVariant blockValue;
-				Serializer::deserialize(ctx, blockType, blockValue);
-
-				printer.print(blockValue);
-
-				blocks.emplace_back(std::move(blockValue));
+				auto blockValue = std::make_shared<NIFVariant>();
+				Serializer::deserialize(ctx, blockType, *blockValue);
+				
+				m_blocks.emplace_back(std::move(blockValue));
 			}
 		}
 		else {
@@ -64,11 +62,9 @@ namespace nifparse {
 
 				Symbol blockType(std::get<NIFDictionary>(blockTypes.data[blockTypeIndex]).getValue<std::string>(Symbol("Value")).c_str());
 
-				NIFVariant blockValue;
-				Serializer::deserialize(ctx, blockType, blockValue);
-
-				//printer.print(blockValue);
-
+				auto blockValue = std::make_shared<NIFVariant>();
+				Serializer::deserialize(ctx, blockType, *blockValue);
+				
 				size_t endPosition = static_cast<size_t>(ins.tellg());
 
 				if (endPosition - position != std::get<uint32_t>(blockSize.data[index])) {
@@ -77,16 +73,56 @@ namespace nifparse {
 
 				position = endPosition;
 
-				blocks.emplace_back(std::move(blockValue));
+				m_blocks.emplace_back(std::move(blockValue));
 			}
 		}
 
-		NIFVariant footer;
+		for (const auto &block : m_blocks) {
+			linkBlock(*block);
+		}
 
-		Serializer::deserialize(ctx, Symbol("Footer"), footer);
+		Serializer::deserialize(ctx, Symbol("Footer"), m_footer);
+		
+		linkBlock(m_footer);
+	}
 
-		printer.print(footer);
+	void NIFFile::linkBlock(NIFVariant &value) {
+		std::visit([=](auto &&val) {
+			doLinkBlock(val);
+		}, value);
+	}
 
-		__debugbreak();
+	void NIFFile::doLinkBlock(NIFDictionary &val) {
+		for (auto &entry : val.data) {
+			linkBlock(entry.second);
+		}
+	}
+
+	void NIFFile::doLinkBlock(NIFArray &val) {
+		for (auto &entry : val.data) {
+			linkBlock(entry);
+		}
+	}
+
+	void NIFFile::doLinkBlock(NIFReference &val) {
+		if (val.target < 0) {
+			val.ptr.reset();
+		}
+		else {
+			val.ptr = m_blocks[val.target];
+		}
+	}
+
+	void NIFFile::doLinkBlock(NIFPointer &val) {
+		if (val.target < 0) {
+			val.ptr.reset();
+		}
+		else {
+			val.ptr = m_blocks[val.target];
+		}
+	}
+
+	NIFArray &NIFFile::rootObjects() {
+		return std::get<NIFDictionary>(m_footer).getValue<NIFArray>("Roots");
 	}
 }
