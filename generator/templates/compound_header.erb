@@ -1,0 +1,33 @@
+class <%= @c_type_name %>
+<% if @type.is_a? NIFNiObject %>
+  : public
+  <% if @type.inherits.nil? %>
+    <% require_type "BaseNiObject" %>
+    BaseNiObject
+  <% else %>
+    <% require_type @type.inherits %>
+    <%= c_qualified_name_for_type @desc.types.fetch @type.inherits %>
+  <% end %>
+<% end %>
+{
+public:
+<% @type.fields.each do |field|
+   require_type field.type
+   type_string, array_expressions = type_for_field @desc, field %>
+<%= description_comment field.description %>
+<%= type_string %> <%= name_for_field field %>;
+<% end %>
+
+};
+
+<% unless @type.is_a? NIFNiObject %>
+<% if @type.template %>
+template<typename TEMPLATE>
+<% end %>
+NIFSerializer &operator <<(NIFSerializer &serializer, const <%= @c_type_name %> &obj);
+
+<% if @type.template %>
+template<typename TEMPLATE>
+<% end %>
+NIFSerializer &operator >>(NIFSerializer &serializer, <%= @c_type_name %> &obj);
+<% end %>

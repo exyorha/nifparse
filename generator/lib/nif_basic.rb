@@ -1,0 +1,3 @@
+class NIFBasic < NIFType
+
+end

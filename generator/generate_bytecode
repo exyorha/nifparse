@@ -1,0 +1,493 @@
+#!/usr/bin/env ruby
+
+require_relative 'lib/generator'
+
+class BytecodeStream
+  def initialize(io)
+    @io = io
+  end
+
+  def write_u8(index)
+    @io.write [ index ].pack("C")
+  end
+
+  def write_u32(index)
+    @io.write [ index ].pack("V")
+  end
+
+  def write_varint(index)
+    @io.write [ index ].pack("w")
+  end
+
+  def write_asciiz(string)
+    @io.write [ string ].pack("Z*")
+  end
+
+  def write_branch_fixup
+    pos = @io.pos
+    @io.write [ 0 ].pack("v")
+    pos
+  end
+
+  def resolve_fixup(fixup_pos, target_pos = @io.pos)
+    saved_pos = @io.pos
+
+    @io.seek fixup_pos
+    @io.write [ target_pos - fixup_pos ].pack("v")
+
+    @io.seek saved_pos
+  end
+end
+
+class BytecodeStringPool
+  attr_reader :strings
+
+  def initialize
+    @strings = {}
+  end
+
+  def get_string(string)
+    existing = @strings[string]
+    if existing.nil?
+      existing = @strings.size
+      @strings[string] = existing
+    end
+
+    existing
+  end
+end
+
+unless ARGV.size == 2
+  warn "Usage: generate_bytecode <INPUT FILE> <OUTPUT FILE>"
+  exit 1
+end
+
+input_filename, output_filename = ARGV
+
+OP_BOOL = 1
+OP_BYTE = 2
+OP_UINT = 3
+OP_ULITTLE32 = 4
+OP_USHORT = 5
+OP_INT = 6
+OP_SHORT = 7
+OP_BLOCKTYPEINDEX = 8
+OP_CHAR = 9
+OP_FILEVERSION = 10
+OP_FLAGS = 11
+OP_FLOAT = 12
+OP_HFLOAT = 13
+OP_HEADER_STRING = 14
+OP_LINE_STRING = 15
+OP_PTR = 16
+OP_REF = 17
+OP_STRINGOFFSET = 18
+OP_STRINGINDEX = 19
+OP_IS_NIOBJECT = 20
+OP_INHERIT = 21
+OP_IS_TEMPLATE = 22
+OP_NAMED_TYPE = 23
+OP_SPECIALIZE = 24
+OP_FIELD = 25
+OP_TEMPLATE_ARGUMENT = 26
+OP_STATIC_ARRAY = 27
+OP_DYNAMIC_ARRAY = 28
+OP_FIELD_INDIRECTION = 29
+OP_FIELD_VALUE = 30
+OP_LITERAL = 31
+OP_NOT = 32
+OP_MUL = 33
+OP_DIV = 34
+OP_MOD = 35
+OP_ADD = 36
+OP_SUB = 37
+OP_LSHIFT = 38
+OP_RSHIFT = 39
+OP_LESSTHAN = 40
+OP_LESSOREQUAL = 41
+OP_GREATERTHAN = 42
+OP_GREATEROREQUAL = 43
+OP_EQUAL = 44
+OP_NOTEQUAL = 45
+OP_BITAND = 46
+OP_XOR = 47
+OP_BITOR = 48
+OP_LOGAND = 49
+OP_LOGOR = 50
+OP_HEADER_FIELD = 51
+OP_CONDITION = 52
+OP_ARG = 53
+OP_SETARG = 54
+OP_BEGIN = 55
+OP_BITFLAGS = 56
+OP_ENUM = 57
+OP_COMPOUND = 58
+OP_OPTION = 59
+OP_DUP = 60
+OP_BRANCHUNLESS = 61
+OP_END = 255
+
+BASIC_TYPES_OPCODES = {
+  "bool"  => OP_BOOL,
+  "byte"  => OP_BYTE,
+  "uint"  => OP_UINT,
+  "ulittle32" => OP_ULITTLE32,
+  "ushort" => OP_USHORT,
+  "int" => OP_INT,
+  "short" => OP_SHORT,
+  "BlockTypeIndex" => OP_BLOCKTYPEINDEX,
+  "char" => OP_CHAR,
+  "FileVersion" => OP_FILEVERSION,
+  "Flags" => OP_FLAGS,
+  "float" => OP_FLOAT,
+  "hfloat" => OP_HFLOAT,
+  "HeaderString" => OP_HEADER_STRING,
+  "LineString" => OP_LINE_STRING,
+  "Ptr" => OP_PTR,
+  "Ref" => OP_REF,
+  "StringOffset" => OP_STRINGOFFSET,
+  "StringIndex" => OP_STRINGINDEX
+}
+
+OPERATOR_OPCODES = {
+  :! => OP_NOT,
+  :* => OP_MUL,
+  :/ => OP_DIV,
+  :% => OP_MOD,
+  :+ => OP_ADD,
+  :- => OP_SUB,
+  :<< => OP_LSHIFT,
+  :>> => OP_RSHIFT,
+  :< => OP_LESSTHAN,
+  :<= => OP_LESSOREQUAL,
+  :> => OP_GREATERTHAN,
+  :>= => OP_GREATEROREQUAL,
+  :== => OP_EQUAL,
+  :!= => OP_NOTEQUAL,
+  :& => OP_BITAND,
+  :^ => OP_XOR,
+  :| => OP_BITOR,
+  :"&&" => OP_LOGAND,
+  :"||" => OP_LOGOR
+}
+
+def write_type_reference(type)
+  if type == "TEMPLATE"
+    @type_stream.write_u8 OP_TEMPLATE_ARGUMENT
+  else
+    typeinfo = @desc.types.fetch type
+    case typeinfo
+    when NIFBasic
+      @type_stream.write_u8 BASIC_TYPES_OPCODES.fetch(typeinfo.name)
+
+    else
+      @type_stream.write_u8 OP_NAMED_TYPE
+      @type_stream.write_varint @string_pool.get_string(typeinfo.name)
+    end
+  end
+end
+
+def write_expression(expression, in_header = false)
+  expression.each do |operation|
+    case operation
+    when Numeric
+      @type_stream.write_u8 OP_LITERAL
+      @type_stream.write_varint operation
+
+    when Symbol
+      @type_stream.write_u8 OPERATOR_OPCODES.fetch(operation)
+
+    when String
+      if operation == "ARG"
+        @type_stream.write_u8 OP_ARG
+      else
+        *path, item = operation.split "\\", -1
+        path.each do |path_item|
+          if in_header
+            raise "cannot indirect in header"
+          end
+
+          @type_stream.write_u8 OP_FIELD_INDIRECTION
+          @type_stream.write_varint @string_pool.get_string(path_item)
+        end
+
+        if in_header
+          @type_stream.write_u8 OP_HEADER_FIELD
+        else
+          @type_stream.write_u8 OP_FIELD_VALUE
+        end
+
+        @type_stream.write_varint @string_pool.get_string(item)
+      end
+    else
+      raise "bad value in expression: #{expression}"
+    end
+  end
+end
+
+def version_literal(string)
+  parts = string.split(".").map { |v| Integer(v, 10) }
+
+  if parts.size > 4
+    raise "too many parts in version: #{string}"
+  end
+
+  while parts.size < 4
+    parts.push 0
+  end
+
+  ((parts[0] & 0xFF) << 24) | ((parts[1] & 0xFF) << 16) | ((parts[2] & 0xFF) << 8) | (parts[3] & 0xFF)
+end
+
+type_stream_io = StringIO.new "".force_encoding("BINARY")
+@string_pool = BytecodeStringPool.new
+@type_stream = BytecodeStream.new type_stream_io
+
+@desc = NIFXML.parse input_filename
+
+type_index = {}
+
+@desc.types.each do |type_name, type|
+  next unless type_name == "Header"
+
+  type_id = @string_pool.get_string(type_name)
+
+  type_index[type_id] = type_stream_io.pos
+
+  @type_stream.write_u8 OP_BEGIN
+  @type_stream.write_varint type_id
+
+  if type.kind_of?(NIFBitflags) || type.kind_of?(NIFEnum)
+    if type.kind_of?(NIFBitflags)
+      @type_stream.write_u8 OP_BITFLAGS
+    else
+      @type_stream.write_u8 OP_ENUM
+    end
+
+    raise "template enums/bitflags make no sense" if type.template
+
+    write_type_reference type.storage
+
+    type.options.each do |option|
+      @type_stream.write_u8 OP_OPTION
+      @type_stream.write_varint @string_pool.get_string(option.name)
+      @type_stream.write_varint option.value
+    end
+  end
+
+  if type.kind_of? NIFCompound
+    @type_stream.write_u8 OP_COMPOUND
+
+    if type.kind_of? NIFNiObject
+      if type.inherits.nil?
+        @type_stream.write_u8 OP_IS_NIOBJECT
+      else
+        @type_stream.write_u8 OP_INHERIT
+        write_type_reference type.inherits
+      end
+    end
+
+    if type.template
+      @type_stream.write_u8 OP_IS_TEMPLATE
+    end
+
+    type.fields.each do |field|
+      write_type_reference field.type
+
+      if field.template_type
+        @type_stream.write_u8 OP_SPECIALIZE
+        write_type_reference field.template_type
+      end
+
+      has_condition_on_stack = false
+
+      cond_fixups = []
+
+      if field.ver1
+        @type_stream.write_u8 OP_HEADER_FIELD
+        @type_stream.write_varint @string_pool.get_string("Version")
+
+        @type_stream.write_u8 OP_LITERAL
+        @type_stream.write_varint version_literal(field.ver1)
+
+        @type_stream.write_u8 OP_GREATERTHAN
+
+        has_condition_on_stack = true
+      end
+
+      if field.ver2
+        if has_condition_on_stack
+          @type_stream.write_u8 OP_DUP
+
+          @type_stream.write_u8 OP_BRANCHUNLESS
+          cond_fixups << @type_stream.write_branch_fixup
+        end
+
+        @type_stream.write_u8 OP_HEADER_FIELD
+        @type_stream.write_varint @string_pool.get_string("Version")
+
+        @type_stream.write_u8 OP_LITERAL
+        @type_stream.write_varint version_literal(field.ver2)
+
+        @type_stream.write_u8 OP_LESSTHAN
+
+        if !has_condition_on_stack
+          has_condition_on_stack = true
+        end
+      end
+
+      if field.vercond
+        if has_condition_on_stack
+          @type_stream.write_u8 OP_DUP
+
+          @type_stream.write_u8 OP_BRANCHUNLESS
+          cond_fixups << @type_stream.write_branch_fixup
+        end
+
+        condition_expression = ExpressionParser.new.parse_expression(field.vercond).output
+        write_expression condition_expression, true
+
+        if !has_condition_on_stack
+          has_condition_on_stack = true
+        end
+      end
+
+      if field.userver
+        if has_condition_on_stack
+          @type_stream.write_u8 OP_DUP
+
+          @type_stream.write_u8 OP_BRANCHUNLESS
+          cond_fixups << @type_stream.write_branch_fixup
+        end
+
+        @type_stream.write_u8 OP_HEADER_FIELD
+        @type_stream.write_varint @string_pool.get_string("User Version")
+
+        @type_stream.write_u8 OP_LITERAL
+        @type_stream.write_varint Integer(field.userver, 0)
+
+        @type_stream.write_u8 OP_EQUAL
+
+        if !has_condition_on_stack
+          has_condition_on_stack = true
+        end
+      end
+
+      if field.userver2
+        if has_condition_on_stack
+          @type_stream.write_u8 OP_DUP
+
+          @type_stream.write_u8 OP_BRANCHUNLESS
+          cond_fixups << @type_stream.write_branch_fixup
+        end
+
+        @type_stream.write_u8 OP_HEADER_FIELD
+        @type_stream.write_varint @string_pool.get_string("User Version 2")
+
+        @type_stream.write_u8 OP_LITERAL
+        @type_stream.write_varint Integer(field.userver2, 0)
+
+        @type_stream.write_u8 OP_EQUAL
+
+        if !has_condition_on_stack
+          has_condition_on_stack = true
+        end
+      end
+
+      if field.cond
+        if has_condition_on_stack
+          @type_stream.write_u8 OP_DUP
+
+          @type_stream.write_u8 OP_BRANCHUNLESS
+          cond_fixups << @type_stream.write_branch_fixup
+        end
+
+        condition_expression = ExpressionParser.new.parse_expression(field.cond).output
+        write_expression condition_expression
+        if !has_condition_on_stack
+          has_condition_on_stack = true
+        end
+      end
+
+      if has_condition_on_stack && (field.arg || field.arr1 || field.arr2)
+        @type_stream.write_u8 OP_DUP
+
+        @type_stream.write_u8 OP_BRANCHUNLESS
+        cond_fixups << @type_stream.write_branch_fixup
+      end
+
+      if field.arg
+        arg = ExpressionParser.new.parse_expression(field.arg).output
+        write_expression arg
+        @type_stream.write_u8 OP_SETARG
+      end
+
+      [ field.arr2, field.arr1 ].each do |array_dimension|
+        unless array_dimension.nil?
+          array_expression = ExpressionParser.new.parse_expression(array_dimension).output
+
+          if array_expression.size == 1 && array_expression[0].kind_of?(Numeric)
+            @type_stream.write_u8 OP_STATIC_ARRAY
+            @type_stream.write_varint array_expression[0]
+          else
+            write_expression array_expression
+            @type_stream.write_u8 OP_DYNAMIC_ARRAY
+          end
+        end
+      end
+
+      if has_condition_on_stack
+        cond_fixups.each do |fixup|
+          @type_stream.resolve_fixup fixup
+        end
+
+        @type_stream.write_u8 OP_CONDITION
+      end
+
+      @type_stream.write_u8 OP_FIELD
+      @type_stream.write_varint @string_pool.get_string(field.name)
+    end
+  end
+
+  @type_stream.write_u8 OP_END
+end
+
+puts "#{@string_pool.strings.size} strings"
+
+string_pos = 0
+@string_pool.strings.each do |string, string_id|
+  string_pos += string.size + 1
+end
+
+outf = StringIO.new "".force_encoding("BINARY")
+
+strings_stream = BytecodeStream.new outf
+
+strings_stream.write_varint type_index.size
+type_index.each do |type_id, position|
+  strings_stream.write_varint type_id
+  strings_stream.write_varint position
+end
+
+strings_stream.write_varint string_pos
+strings_stream.write_varint @string_pool.strings.size
+@string_pool.strings.each do |string, string_id|
+  strings_stream.write_asciiz string
+end
+
+outf.write type_stream_io.string
+
+File.open(output_filename, "w") do |bcf|
+  bcf.puts "#include <nifparse/bytecode.h>"
+  bcf.puts "namespace nifparse {"
+  bcf.puts "const unsigned char nifBytecode[] = {";
+
+  outf.string.unpack("C*").each_slice(16) do |slice|
+    bcf.puts(slice.map { |v| "0x" + v.to_s(16).rjust(2, '0') }.join(", ") + ",")
+  end
+
+  bcf.puts "};"
+  bcf.puts "}"
+end
+
+File.binwrite "types.bin", outf.string
