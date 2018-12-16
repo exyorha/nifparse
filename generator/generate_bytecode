@@ -37,6 +37,10 @@ class BytecodeStream
 
     @io.seek saved_pos
   end
+
+  def write_data(data)
+    @io.write data
+  end
 end
 
 class BytecodeStringPool
@@ -126,6 +130,8 @@ OP_OPTION = 59
 OP_DUP = 60
 OP_BRANCHUNLESS = 61
 OP_BRANCHIF = 62
+OP_BRANCH = 63
+OP_FIELD_DEFAULT = 64
 OP_END = 255
 
 BASIC_TYPES_OPCODES = {
@@ -412,7 +418,7 @@ type_index = {}
         @type_stream.write_u8 OP_LITERAL
         @type_stream.write_varint version_literal(field.ver1)
 
-        @type_stream.write_u8 OP_GREATERTHAN
+        @type_stream.write_u8 OP_GREATEROREQUAL
 
         has_condition_on_stack = true
       end
@@ -431,7 +437,7 @@ type_index = {}
         @type_stream.write_u8 OP_LITERAL
         @type_stream.write_varint version_literal(field.ver2)
 
-        @type_stream.write_u8 OP_LESSTHAN
+        @type_stream.write_u8 OP_LESSOREQUAL
 
         if !has_condition_on_stack
           has_condition_on_stack = true
@@ -524,7 +530,7 @@ type_index = {}
         @type_stream.write_u8 OP_SETARG
       end
 
-      [ field.arr2, field.arr1 ].each do |array_dimension|
+      [ field.arr1, field.arr2 ].each do |array_dimension|
         unless array_dimension.nil?
           array_expression = ExpressionParser.new.parse_expression(array_dimension).output
 
@@ -538,16 +544,44 @@ type_index = {}
         end
       end
 
+      default_field_fixup = nil
+      post_field_fixup = nil
+
       if has_condition_on_stack
         cond_fixups.each do |fixup|
           @type_stream.resolve_fixup fixup
         end
 
+        if field.default
+          @type_stream.write_u8 OP_DUP
+        end
+
         @type_stream.write_u8 OP_CONDITION
+
+        if field.default
+          @type_stream.write_u8 OP_BRANCHUNLESS
+          default_field_fixup = @type_stream.write_branch_fixup
+        end
       end
 
       @type_stream.write_u8 OP_FIELD
       @type_stream.write_varint @string_pool.get_string(field.name)
+
+      if default_field_fixup
+        @type_stream.write_u8 OP_BRANCH
+        post_field_fixup = @type_stream.write_branch_fixup
+
+        field_default = field.encode_default @desc
+
+        @type_stream.resolve_fixup default_field_fixup
+
+        @type_stream.write_u8 OP_FIELD_DEFAULT
+        @type_stream.write_varint @string_pool.get_string(field.name)
+        @type_stream.write_varint field_default.size
+        @type_stream.write_data field_default
+
+        @type_stream.resolve_fixup post_field_fixup
+      end
     end
   end
 

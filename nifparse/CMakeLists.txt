@@ -1,6 +1,9 @@
 add_library(nifparse STATIC
   include/nifparse/bytecode.h
   include/nifparse/BytecodeReader.h
+  include/nifparse/ConstantDataStream.h
+  include/nifparse/FileDataStream.h
+  include/nifparse/INIFDataStream.h
   include/nifparse/NIFFile.h
   include/nifparse/PrettyPrinter.h
   include/nifparse/Serializer.h
@@ -10,6 +13,8 @@ add_library(nifparse STATIC
   include/nifparse/Types.h
   include/nifparse/TypeDescription.h
   nifparse/BytecodeReader.cpp
+  nifparse/ConstantDataStream.cpp
+  nifparse/FileDataStream.cpp
   nifparse/NIFFile.cpp
   nifparse/PrettyPrinter.cpp
   nifparse/Serializer.cpp

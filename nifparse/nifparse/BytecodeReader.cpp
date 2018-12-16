@@ -54,4 +54,12 @@ namespace nifparse {
 	size_t BytecodeReader::position() const {
 		return m_ptr - nifBytecode;
 	}
+	
+	const unsigned char *BytecodeReader::readBytes(size_t length) {
+		auto result = m_ptr;
+
+		m_ptr += length;
+
+		return result;
+	}
 }

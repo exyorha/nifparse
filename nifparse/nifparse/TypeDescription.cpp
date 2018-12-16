@@ -2,6 +2,8 @@
 #include <nifparse/SerializerContext.h>
 #include <nifparse/BytecodeReader.h>
 #include <nifparse/Serializer.h>
+#include <nifparse/INIFDataStream.h>
+
 #include <half.h>
 
 #include <sstream>
@@ -136,7 +138,7 @@ namespace nifparse {
 
 			size_t arraySize = *it;
 			NIFVariant value;
-
+			
 			if (nextIt == m_dimensions.end() && m_type == Type::Byte) {
 				// Byte array
 
@@ -144,7 +146,7 @@ namespace nifparse {
 
 				auto &arrayData = std::get<std::vector<unsigned char>>(value);
 
-				ctx.stream().read(reinterpret_cast<char *>(arrayData.data()), arrayData.size());
+				ctx.stream().readBytes(arrayData.data(), arrayData.size());
 			}
 			else if (nextIt == m_dimensions.end() && m_type == Type::Char) {
 				// String
@@ -154,7 +156,7 @@ namespace nifparse {
 				auto &arrayData = std::get<std::string>(value);
 
 				arrayData.resize(arraySize);
-				ctx.stream().read(arrayData.data(), arrayData.size());
+				ctx.stream().readBytes(reinterpret_cast<unsigned char *>(arrayData.data()), arrayData.size());
 			}
 			else {
 
@@ -181,23 +183,23 @@ namespace nifparse {
 			throw std::runtime_error("attempted to read null type");
 
 		case Type::Bool:
-			if (std::get<NIFDictionary>(ctx.header).getValue<uint32_t>("Version") >= 0x04010001) {
+			if (!ctx.useConstantLengths() && std::get<NIFDictionary>(ctx.header).getValue<uint32_t>("Version") > 0x04000002) {
 				union {
-					char bytes[1];
+					unsigned char bytes[1];
 					uint8_t val;
 				} u;
 
-				ctx.stream().read(u.bytes, sizeof(u.bytes));
+				ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 				value = static_cast<uint32_t>(u.val);
 			}
 			else {
 				union {
-					char bytes[4];
+					unsigned char bytes[4];
 					uint32_t val;
 				} u;
 
-				ctx.stream().read(u.bytes, sizeof(u.bytes));
+				ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 				value = u.val;
 			}
@@ -207,11 +209,11 @@ namespace nifparse {
 		case Type::Byte:
 		{
 			union {
-				char bytes[1];
+				unsigned char bytes[1];
 				uint8_t val;
 			} u;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			value = static_cast<uint32_t>(u.val);
 			break;
@@ -222,11 +224,11 @@ namespace nifparse {
 		case Type::StringIndex:
 		{
 			union {
-				char bytes[4];
+				unsigned char bytes[4];
 				uint32_t val;
 			} u;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			value = static_cast<uint32_t>(u.val);
 			break;
@@ -235,11 +237,11 @@ namespace nifparse {
 		case Type::Int:
 		{
 			union {
-				char bytes[4];
+				unsigned char bytes[4];
 				int32_t val;
 			} u;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			value = static_cast<uint32_t>(u.val);
 			break;
@@ -248,24 +250,38 @@ namespace nifparse {
 		case Type::Float:
 		{			
 			union {
-				char bytes[4];
+				unsigned char bytes[4];
 				float val;
 			} u;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			value = u.val;
 			break;
 		}
 
 		case Type::UShort:
+		case Type::Flags:
 		{
 			union {
-				char bytes[2];
+				unsigned char bytes[2];
 				uint16_t val;
 			} u;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
+
+			value = static_cast<uint32_t>(u.val);
+			break;
+		}
+
+		case Type::Short:
+		{
+			union {
+				unsigned char bytes[2];
+				int16_t val;
+			} u;
+
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			value = static_cast<uint32_t>(u.val);
 			break;
@@ -274,7 +290,13 @@ namespace nifparse {
 		case Type::HeaderString:
 		{
 			std::string headerString;
-			std::getline(ctx.stream(), headerString);
+			unsigned char byte;
+			do {
+				ctx.stream().readBytes(&byte, 1);
+
+				if (byte != '\n')
+					headerString.push_back(static_cast<char>(byte));
+			} while (byte != '\n');
 
 			std::smatch matches;
 
@@ -297,11 +319,11 @@ namespace nifparse {
 		case Type::Ref:
 		{			
 			union {
-				char bytes[4];
+				unsigned char bytes[4];
 				int32_t val;
 			} u;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			if (!m_specialization || m_specialization->type() != Type::NamedType) {
 				throw std::logic_error("Ref specialization has invalid type");
@@ -318,11 +340,11 @@ namespace nifparse {
 		case Type::Ptr:
 		{
 			union {
-				char bytes[4];
+				unsigned char bytes[4];
 				int32_t val;
 			} u;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			if (!m_specialization || m_specialization->type() != Type::NamedType) {
 				throw std::logic_error("Ref specialization has invalid type");
@@ -339,7 +361,7 @@ namespace nifparse {
 		case Type::HFloat:
 		{
 			union {
-				char bytes[2];
+				unsigned char bytes[2];
 				uint16_t val;
 			} u;
 
@@ -348,7 +370,7 @@ namespace nifparse {
 				float f;
 			} u2;
 
-			ctx.stream().read(u.bytes, sizeof(u.bytes));
+			ctx.stream().readBytes(u.bytes, sizeof(u.bytes));
 
 			u2.i = half_to_float(u.val);
 			value = u2.f;

@@ -5,20 +5,24 @@
 #include <nifparse/Types.h>
 
 namespace nifparse {
+	class INIFDataStream;
+
 	class SerializerContext {
 	public:
-		SerializerContext(std::iostream &stream);
+		SerializerContext(NIFVariant &header, INIFDataStream &stream, bool useConstantLengths);
 		~SerializerContext();
 
 		SerializerContext(const SerializerContext &other) = delete;
 		SerializerContext &operator =(const SerializerContext &other) = delete;
 
-		inline std::iostream &stream() { return m_stream; }
+		inline INIFDataStream &stream() { return m_stream; }
+		inline bool useConstantLengths() const { return m_useConstantLengths; }
 
-		NIFVariant header;
+		NIFVariant &header;
 
 	private:
-		std::iostream &m_stream;
+		INIFDataStream &m_stream;
+		bool m_useConstantLengths;
 	};
 }
 

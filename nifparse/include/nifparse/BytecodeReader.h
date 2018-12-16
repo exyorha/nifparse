@@ -17,6 +17,7 @@ namespace nifparse {
 		uint32_t readVarInt();
 		const char *readAsciiz();
 		uint16_t readU16();
+		const unsigned char *readBytes(size_t length);
 
 		void branch(int displacement);
 

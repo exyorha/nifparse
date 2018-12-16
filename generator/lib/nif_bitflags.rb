@@ -4,4 +4,16 @@ class NIFBitflags < NIFType
   def initialize
     @options = []
   end
+
+  def encode_value_of_type(value, desc)
+    option = options.find do |option|
+      option.name == value
+    end
+
+    unless option.nil?
+      value = 1 << option.value
+    end
+
+    desc.types.fetch(storage).encode_value_of_type(value, desc)
+  end
 end

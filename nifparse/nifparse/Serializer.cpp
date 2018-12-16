@@ -1,6 +1,7 @@
 #include <nifparse/Serializer.h>
 #include <nifparse/TypeDescription.h>
 #include <nifparse/SerializerContext.h>
+#include <nifparse/ConstantDataStream.h>
 
 #include <sstream>
 
@@ -127,7 +128,7 @@ namespace nifparse {
 			case Opcode::FIELD:
 			{
 				Symbol fieldName(m_bytecodeReader.readVarInt());
-				printf("Field %s: %d\n", fieldName.toString(), fieldPresent);
+
 				if (fieldPresent) {
 					if (m_mode == Mode::Deserialize) {
 						auto value = description.readValue(ctx);
@@ -147,6 +148,26 @@ namespace nifparse {
 				description.reset();
 				break;
 			}
+
+			case Opcode::FIELD_DEFAULT:
+			{
+				Symbol fieldName(m_bytecodeReader.readVarInt());
+				
+				size_t dataLength = m_bytecodeReader.readVarInt();
+				auto data = m_bytecodeReader.readBytes(dataLength);
+
+				if (m_mode == Mode::Deserialize) {
+					ConstantDataStream defaultStream(data, dataLength);
+					SerializerContext defaultContext(ctx.header, defaultStream, true);
+					auto value = description.readValue(defaultContext);
+					dictionary.data.emplace(fieldName, std::move(value));
+				}
+
+				fieldPresent = true;
+				description.reset();
+				break;
+			}
+
 
 			case Opcode::STATIC_ARRAY:
 				description.addArrayDimension(m_bytecodeReader.readVarInt());
@@ -205,12 +226,11 @@ namespace nifparse {
 				else {
 					auto it = dict->data.find(fieldName);
 					if (it == dict->data.end()) {
-						std::stringstream error;
-						error << "Required field is not in dictionary: " << fieldName.toString();
-						throw std::runtime_error(error.str());
+						m_stack.push_back(0);
 					}
-
-					m_stack.push_back(coerceForStack(it->second));
+					else {
+						m_stack.push_back(coerceForStack(it->second));
+					}
 				}
 			}
 				break;
@@ -320,6 +340,14 @@ namespace nifparse {
 					}
 				}
 				break;
+
+			case Opcode::BRANCH:
+				{
+					auto displacement = m_bytecodeReader.readU16();
+					m_bytecodeReader.branch(static_cast<int>(displacement) - 2);
+				}
+				break;
+
 
 			case Opcode::END:
 				break;

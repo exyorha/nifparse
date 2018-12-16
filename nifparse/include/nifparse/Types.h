@@ -113,6 +113,8 @@ namespace nifparse {
 		DUP = 60,
 		BRANCHUNLESS = 61,
 		BRANCHIF = 62,
+		BRANCH = 63,
+		FIELD_DEFAULT = 64,
 		END = 255
 	};
 
