@@ -625,5 +625,3 @@ File.open(output_filename, "w") do |bcf|
   bcf.puts "};"
   bcf.puts "}"
 end
-
-File.binwrite "types.bin", outf.string
