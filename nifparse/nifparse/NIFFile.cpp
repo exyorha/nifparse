@@ -122,7 +122,19 @@ namespace nifparse {
 		}
 	}
 
+	NIFDictionary &NIFFile::header() {
+		return std::get<NIFDictionary>(m_header);
+	}
+
+	const NIFDictionary &NIFFile::header() const {
+		return std::get<NIFDictionary>(m_header);
+	}
+
 	NIFArray &NIFFile::rootObjects() {
+		return std::get<NIFDictionary>(m_footer).getValue<NIFArray>("Roots");
+	}
+
+	const NIFArray &NIFFile::rootObjects() const {
 		return std::get<NIFDictionary>(m_footer).getValue<NIFArray>("Roots");
 	}
 }

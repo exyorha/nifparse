@@ -98,7 +98,7 @@ namespace nifparse {
 
 		for (size_t offset = 0; offset < byteArray.size(); offset += 16) {
 			char buf[16];
-			snprintf(buf, sizeof(buf), "%04X ", offset);
+			snprintf(buf, sizeof(buf), "%04zX ", offset);
 
 			printValueNoNewLine(buf);
 

@@ -12,4 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(halffloat)
 add_subdirectory(nifparse)
-add_subdirectory(nifparse-test)
+if(${CMAKE_PROJECT_NAME} STREQUAL ${PROJECT_NAME})
+	add_subdirectory(nifparse-test)
+endif()
+

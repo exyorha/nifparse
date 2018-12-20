@@ -43,7 +43,22 @@ namespace nifparse {
 			}
 
 			return std::get<T>(it->second);
-		}		
+		}
+
+		template<typename T>
+		const T &getValue(Symbol key) const {
+			auto it = data.find(key);
+			if (it == data.end()) {
+				std::stringstream stream;
+				stream << "No key " << key.toString() << " in dictionary";
+				throw std::runtime_error(stream.str());
+			}
+
+			return std::get<T>(it->second);
+		}
+
+		bool isA(const Symbol &type) const;
+		bool kindOf(const Symbol &type) const;
 	};
 
 	struct NIFArray {

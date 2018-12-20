@@ -15,7 +15,11 @@ namespace nifparse {
 
 		void parse(std::iostream &ins);
 
+		NIFDictionary &header();
+		const NIFDictionary &header() const;
+
 		NIFArray &rootObjects();
+		const NIFArray &rootObjects() const;
 
 	private:
 		void linkBlock(NIFVariant &value);

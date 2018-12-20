@@ -22,6 +22,7 @@ add_library(nifparse STATIC
   nifparse/Symbol.cpp
   nifparse/SymbolTable.cpp
   nifparse/TypeDescription.cpp
+  nifparse/Types.cpp
 
   ${CMAKE_CURRENT_BINARY_DIR}/nif_bytecode.cpp
 )
