@@ -12,7 +12,8 @@ namespace nifparse {
 		m_type(typeSymbol),
 		m_bytecodeReader(typeSymbol.typeBytecodeStartOffset()),
 		m_value(value),
-		m_arg(0) {
+		m_arg(0),
+		m_specialization(nullptr) {
 
 		auto beginOp = m_bytecodeReader.readByte();
 
@@ -113,17 +114,30 @@ namespace nifparse {
 
 				break;
 
+			case Opcode::IS_TEMPLATE:
+				description.setIsTemplate();
+				break;
+
 			case Opcode::SPECIALIZE:
 			{
 				auto specializationOp = static_cast<Opcode>(m_bytecodeReader.readByte());
-				if (!description.specialization().parse(specializationOp, m_bytecodeReader)) {
-					std::stringstream error;
-					error << "Unable to parse specialization, opcode " << static_cast<unsigned int>(specializationOp);
-					throw std::runtime_error(error.str());
+				if (specializationOp == Opcode::TEMPLATE_ARGUMENT) {
+					if (!m_specialization)
+						throw std::runtime_error("template type is not specialized");
+
+					description.specialization() = *m_specialization;
+				}
+				else {
+					if (!description.specialization().parse(specializationOp, m_bytecodeReader)) {
+						std::stringstream error;
+						error << "Unable to parse specialization, opcode " << static_cast<unsigned int>(specializationOp);
+						throw std::runtime_error(error.str());
+					}
 				}
 
 				break;
 			}
+
 
 			case Opcode::FIELD:
 			{
@@ -152,7 +166,7 @@ namespace nifparse {
 			case Opcode::FIELD_DEFAULT:
 			{
 				Symbol fieldName(m_bytecodeReader.readVarInt());
-				
+
 				size_t dataLength = m_bytecodeReader.readVarInt();
 				auto data = m_bytecodeReader.readBytes(dataLength);
 
@@ -168,6 +182,12 @@ namespace nifparse {
 				break;
 			}
 
+			case Opcode::TEMPLATE_ARGUMENT:
+				if (!m_specialization)
+					throw std::runtime_error("template type is not specialized");
+
+				description = *m_specialization;
+				break;
 
 			case Opcode::STATIC_ARRAY:
 				description.addArrayDimension(m_bytecodeReader.readVarInt());

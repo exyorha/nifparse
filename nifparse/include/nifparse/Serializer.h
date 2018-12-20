@@ -6,6 +6,8 @@
 
 namespace nifparse {
 	class SerializerContext;
+	class TypeDescription;
+
 	class Serializer {
 	public:
 		enum class Mode {
@@ -27,6 +29,9 @@ namespace nifparse {
 		inline uint32_t arg() const { return m_arg; }
 		inline void setArg(uint32_t arg) { m_arg = arg; }
 
+		inline TypeDescription *specialization() const { return m_specialization; }
+		inline void setSpecialization(TypeDescription *specialization) { m_specialization = specialization; }
+
 	private:
 		void executeCompound(SerializerContext &ctx);
 		void executeEnum(SerializerContext &ctx, Opcode startOpcode);
@@ -41,6 +46,7 @@ namespace nifparse {
 		NIFVariant &m_value;
 		std::vector<uint32_t> m_stack;
 		uint32_t m_arg;
+		TypeDescription *m_specialization;
 	};
 }
 

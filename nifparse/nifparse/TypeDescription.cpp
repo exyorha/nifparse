@@ -13,7 +13,7 @@ namespace nifparse {
 	static const std::regex fileVersionRegex1("^NetImmerse File Format, Version ([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$");
 	static const std::regex fileVersionRegex2("^Gamebryo File Format, Version ([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$");
 	
-	TypeDescription::TypeDescription(SpecializationMarker) : m_type(Type::Null), m_arg(0) {
+	TypeDescription::TypeDescription(SpecializationMarker) : m_type(Type::Null), m_arg(0), m_isTemplate(false) {
 
 	}
 
@@ -23,6 +23,25 @@ namespace nifparse {
 
 	TypeDescription::~TypeDescription() {
 		
+	}
+
+	TypeDescription::TypeDescription(const TypeDescription &other) : m_type(Type::Null), m_arg(0), m_isTemplate(false) {
+		*this = other;
+	}
+	
+	TypeDescription &TypeDescription::operator =(const TypeDescription &other) {
+		m_type = other.m_type;
+		m_dimensions = other.m_dimensions;
+		m_typeName = other.m_typeName;
+		m_arg = other.m_arg;
+		if (other.m_specialization) {
+			m_specialization = std::make_unique<TypeDescription>(*other.m_specialization);
+		}
+		else {
+			m_specialization.reset();
+		}
+		m_isTemplate = other.m_isTemplate;
+		return *this;
 	}
 
 	bool TypeDescription::parse(Opcode opcode, BytecodeReader &bytecode) {
@@ -104,7 +123,7 @@ namespace nifparse {
 			m_type = Type::NamedType;
 			m_typeName = Symbol(bytecode.readVarInt());
 			return true;
-			
+						
 		default:
 			return false;
 		}
@@ -122,6 +141,7 @@ namespace nifparse {
 		if (m_specialization) {
 			m_specialization->reset();
 		}
+		m_isTemplate = false;
 	}
 
 	NIFVariant TypeDescription::readValue(SerializerContext &ctx) {
@@ -381,10 +401,11 @@ namespace nifparse {
 		{
 			Serializer serializer(Serializer::Mode::Deserialize, m_typeName, value);
 			serializer.setArg(m_arg);
+			serializer.setSpecialization(m_specialization.get());
 			serializer.execute(ctx);
 			break;
 		}
-			
+					
 		default:
 		{
 			std::stringstream stream;
