@@ -239,6 +239,19 @@ namespace nifparse {
 			break;
 		}
 
+		case Type::Char:
+		{
+			union {
+				char bytes[1];
+				uint8_t val;
+			} u;
+
+			ctx.stream().readBytes(reinterpret_cast<unsigned char *>(u.bytes), sizeof(u.bytes));
+
+			value = static_cast<uint32_t>(u.val);
+			break;
+		}
+
 		case Type::UInt:
 		case Type::ULittle32:
 		case Type::StringIndex:

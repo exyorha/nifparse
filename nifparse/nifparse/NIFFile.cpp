@@ -20,10 +20,7 @@ namespace nifparse {
 		SerializerContext ctx(m_header, stream, false);
 
 		Serializer::deserialize(ctx, Symbol("Header"), ctx.header);
-
-		PrettyPrinter printer(std::cout);
-		printer.print(ctx.header);
-
+		
 		auto &header = std::get<NIFDictionary>(ctx.header);
 		auto blockCount = header.getValue<uint32_t>(Symbol("Num Blocks"));
 
@@ -51,7 +48,7 @@ namespace nifparse {
 		else {
 			auto &blockTypeArray = header.getValue<NIFArray>(Symbol("Block Type Index"));
 			auto &blockTypes = header.getValue<NIFArray>(Symbol("Block Types"));
-			auto &blockSize = header.getValue<NIFArray>(Symbol("Block Size"));
+			auto &blockSizes = header.getValue<NIFArray>(Symbol("Block Size"));
 
 			size_t position = static_cast<size_t>(ins.tellg());
 
@@ -67,7 +64,10 @@ namespace nifparse {
 				
 				size_t endPosition = static_cast<size_t>(ins.tellg());
 
-				if (endPosition - position != std::get<uint32_t>(blockSize.data[index])) {
+				size_t blockSize = endPosition - position;
+				size_t expectedBlockSize = std::get<uint32_t>(blockSizes.data[index]);
+
+				if (blockSize != expectedBlockSize) {
 					throw std::logic_error("invalid block length");
 				}
 

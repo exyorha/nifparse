@@ -235,25 +235,25 @@ namespace nifparse {
 				}
 
 				Symbol fieldName(m_bytecodeReader.readVarInt());
-				if (fieldName.isTypeName()) {
-					if (std::find(dict->typeChain.begin(), dict->typeChain.end(), fieldName) == dict->typeChain.end()) {
-						m_stack.push_back(0);
+				auto it = dict->data.find(fieldName);
+				if (it == dict->data.end()) {
+					if (fieldName.isTypeName()) {
+						if (std::find(dict->typeChain.begin(), dict->typeChain.end(), fieldName) == dict->typeChain.end()) {
+							m_stack.push_back(0);
+						}
+						else {
+							m_stack.push_back(1);
+						}
 					}
 					else {
-						m_stack.push_back(1);
+						m_stack.push_back(0);
 					}
 				}
 				else {
-					auto it = dict->data.find(fieldName);
-					if (it == dict->data.end()) {
-						m_stack.push_back(0);
-					}
-					else {
-						m_stack.push_back(coerceForStack(it->second));
-					}
+					m_stack.push_back(coerceForStack(it->second));
 				}
-			}
 				break;
+			}
 
 			case Opcode::LITERAL:
 				m_stack.push_back(m_bytecodeReader.readVarInt());
