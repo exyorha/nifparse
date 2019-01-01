@@ -1,3 +1,6 @@
 [submodule "nifxml"]
 	path = nifxml
 	url = https://github.com/niftools/nifxml.git
+[submodule "halffloat"]
+	path = halffloat
+	url = https://unwind-project.org/ope/halffloat.git
