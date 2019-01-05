@@ -26,7 +26,7 @@ namespace nifparse {
 			auto string = reader.readAsciiz();
 
 			m_symbolStrings.emplace_back(string);
-			m_symbolLookup.emplace(string, index);
+			m_symbolLookup.emplace(string, static_cast<uint32_t>(index));
 		}
 	}
 

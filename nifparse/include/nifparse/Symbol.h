@@ -32,6 +32,8 @@ namespace nifparse {
 		size_t typeBytecodeStartOffset() const;
 		bool isTypeName() const;
 
+		Symbol parentType() const;
+
 	private:
 		uint32_t m_value;
 
