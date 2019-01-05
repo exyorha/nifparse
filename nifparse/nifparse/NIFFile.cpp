@@ -48,7 +48,12 @@ namespace nifparse {
 		else {
 			auto &blockTypeArray = header.getValue<NIFArray>(Symbol("Block Type Index"));
 			auto &blockTypes = header.getValue<NIFArray>(Symbol("Block Types"));
-			auto &blockSizes = header.getValue<NIFArray>(Symbol("Block Size"));
+
+			NIFArray *blockSizes = nullptr;
+
+			if (header.data.count("Block Size") != 0) {
+				blockSizes = &header.getValue<NIFArray>(Symbol("Block Size"));
+			}
 
 			size_t position = static_cast<size_t>(ins.tellg());
 
@@ -64,11 +69,13 @@ namespace nifparse {
 				
 				size_t endPosition = static_cast<size_t>(ins.tellg());
 
-				size_t blockSize = endPosition - position;
-				size_t expectedBlockSize = std::get<uint32_t>(blockSizes.data[index]);
+				if (blockSizes) {
+					size_t blockSize = endPosition - position;
+					size_t expectedBlockSize = std::get<uint32_t>(blockSizes->data[index]);
 
-				if (blockSize != expectedBlockSize) {
-					throw std::logic_error("invalid block length");
+					if (blockSize != expectedBlockSize) {
+						throw std::logic_error("invalid block length");
+					}
 				}
 
 				position = endPosition;

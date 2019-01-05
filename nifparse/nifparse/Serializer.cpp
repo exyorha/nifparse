@@ -308,7 +308,7 @@ namespace nifparse {
 				if (m_stack.empty())
 					throw std::runtime_error("stack underflow");
 
-				fieldPresent = m_stack.back() != 0;
+				fieldPresent = std::get<uint32_t>(m_stack.back()) != 0;
 				m_stack.pop_back();
 				break;
 
@@ -320,7 +320,7 @@ namespace nifparse {
 				if (m_stack.empty())
 					throw std::runtime_error("stack underflow");
 
-				description.setArg(m_stack.back());
+				description.setArg(std::get<uint32_t>(m_stack.back()));
 				m_stack.pop_back();
 				break;
 
@@ -340,7 +340,7 @@ namespace nifparse {
 					auto value = m_stack.back();
 					m_stack.pop_back();
 
-					if (value == 0) {
+					if (std::get<uint32_t>(value) == 0) {
 						m_bytecodeReader.branch(static_cast<int>(displacement) - 2);
 					}
 				}
@@ -355,7 +355,7 @@ namespace nifparse {
 					auto value = m_stack.back();
 					m_stack.pop_back();
 
-					if (value != 0) {
+					if (std::get<uint32_t>(value) != 0) {
 						m_bytecodeReader.branch(static_cast<int>(displacement) - 2);
 					}
 				}
@@ -476,7 +476,7 @@ namespace nifparse {
 		if (m_stack.empty())
 			throw std::runtime_error("stack underflow");
 
-		auto val = m_stack.back();
+		auto val = std::get<uint32_t>(m_stack.back());
 		m_stack.pop_back();
 
 		uint32_t result;
@@ -497,10 +497,10 @@ namespace nifparse {
 		if (m_stack.size() < 2)
 			throw std::runtime_error("stack underflow");
 
-		auto right = m_stack.back();
+		auto right = std::get<uint32_t>(m_stack.back());
 		m_stack.pop_back();
 
-		auto left = m_stack.back();
+		auto left = std::get<uint32_t>(m_stack.back());
 		m_stack.pop_back();
 
 		uint32_t result;
@@ -585,7 +585,7 @@ namespace nifparse {
 		m_stack.push_back(result);
 	}
 
-	uint32_t Serializer::coerceForStack(const NIFVariant &value) {
+	StackValue Serializer::coerceForStack(const NIFVariant &value) {
 		auto enumval = std::get_if<NIFEnum>(&value);
 		
 		if(enumval) {
@@ -597,7 +597,13 @@ namespace nifparse {
 				return bitval->rawValue;
 			}
 			else {
-				return std::get<uint32_t>(value);
+				auto stackval = std::get_if<NIFArray>(&value);
+				if (stackval) {
+					return *stackval;
+				}
+				else {
+					return std::get<uint32_t>(value);
+				}
 			}
 		}
 	}

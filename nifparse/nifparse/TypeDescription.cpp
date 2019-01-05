@@ -129,7 +129,7 @@ namespace nifparse {
 		}
 	}
 
-	void TypeDescription::addArrayDimension(size_t dimension) {
+	void TypeDescription::addArrayDimension(StackValue dimension) {
 		m_dimensions.emplace_back(dimension);
 	}
 
@@ -145,10 +145,10 @@ namespace nifparse {
 	}
 
 	NIFVariant TypeDescription::readValue(SerializerContext &ctx) {
-		return doReadValue(ctx, m_dimensions.begin());
+		return doReadValue(ctx, static_cast<uint32_t>(~0), m_dimensions.begin());
 	}
 
-	NIFVariant TypeDescription::doReadValue(SerializerContext &ctx, std::vector<size_t>::iterator it) {
+	NIFVariant TypeDescription::doReadValue(SerializerContext &ctx, uint32_t outerIndex, std::vector<StackValue>::iterator it) {
 		if (it == m_dimensions.end()) {
 			return readSingleValue(ctx);
 		}
@@ -156,7 +156,19 @@ namespace nifparse {
 			auto nextIt = it;
 			++nextIt;
 
-			size_t arraySize = *it;
+			size_t arraySize;
+
+			auto arraySizeInt = std::get_if<uint32_t>(&*it);
+			if (arraySizeInt) {
+				arraySize = *arraySizeInt;
+			}
+			else if(outerIndex == static_cast<uint32_t>(~0)) {
+				throw std::runtime_error("dynamic array size at outer level");
+			}
+			else {
+				arraySize = std::get<uint32_t>(std::get<NIFArray>(*it).data[outerIndex]);
+			}
+
 			NIFVariant value;
 			
 			if (nextIt == m_dimensions.end() && m_type == Type::Byte) {
@@ -187,7 +199,7 @@ namespace nifparse {
 				arrayData.data.reserve(arraySize);
 
 				for (size_t index = 0; index < arraySize; index++) {
-					arrayData.data.emplace_back(doReadValue(ctx, nextIt));
+					arrayData.data.emplace_back(doReadValue(ctx, static_cast<uint32_t>(index), nextIt));
 				}
 			}
 
@@ -431,27 +443,40 @@ namespace nifparse {
 	}
 
 	void TypeDescription::writeValue(SerializerContext &ctx, const NIFVariant &value) {
-		return doWriteValue(ctx, value, m_dimensions.begin());
+		return doWriteValue(ctx, value, static_cast<uint32_t>(~0), m_dimensions.begin());
 	}
 
 
-	void TypeDescription::doWriteValue(SerializerContext &ctx, const NIFVariant &value, std::vector<size_t>::iterator it) {
+	void TypeDescription::doWriteValue(SerializerContext &ctx, const NIFVariant &value, uint32_t outerIndex, std::vector<StackValue>::iterator it) {
 		if (it == m_dimensions.end()) {
 			writeSingleValue(ctx, value);
 		}
 		else {
-			size_t arraySize = *it;
+			size_t arraySize;
 			
+			auto nextIt = it;
+			++nextIt;
+			
+			auto arraySizeInt = std::get_if<uint32_t>(&*it);
+			if (arraySizeInt) {
+				arraySize = *arraySizeInt;
+			}
+			else if (outerIndex == static_cast<uint32_t>(~0)) {
+				throw std::runtime_error("dynamic array size at outer level");
+			}
+			else {
+				arraySize = std::get<uint32_t>(std::get<NIFArray>(*it).data[outerIndex]);
+			}
+
 			auto &arrayData = std::get<NIFArray>(value);
 
 			if (arrayData.data.size() != arraySize)
 				throw std::runtime_error("array size mismatch");
 
-			auto nextIt = it;
-			++nextIt;
-
+			uint32_t index = 0;
 			for (const auto &arrayValue : arrayData.data) {
-				doWriteValue(ctx, arrayValue, nextIt);
+				doWriteValue(ctx, arrayValue, index, nextIt);
+				index++;
 			}
 		}
 	}

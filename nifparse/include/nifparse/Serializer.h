@@ -38,13 +38,13 @@ namespace nifparse {
 		void doExecuteCompound(SerializerContext &ctx, NIFDictionary &dictionary);
 		void executeUnary(Opcode op);
 		void executeBinary(Opcode op);
-		uint32_t coerceForStack(const NIFVariant &value);
+		StackValue coerceForStack(const NIFVariant &value);
 
 		Mode m_mode;
 		Symbol m_type;
 		BytecodeReader m_bytecodeReader;
 		NIFVariant &m_value;
-		std::vector<uint32_t> m_stack;
+		std::vector<StackValue> m_stack;
 		uint32_t m_arg;
 		TypeDescription *m_specialization;
 	};

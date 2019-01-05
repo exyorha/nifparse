@@ -28,6 +28,8 @@ namespace nifparse {
 		float						// Floating point number
 	>;
 
+	using StackValue = std::variant<uint32_t, NIFArray>;
+
 	struct NIFDictionary {
 		std::unordered_map<Symbol, NIFVariant> data;
 		std::vector<Symbol> typeChain;

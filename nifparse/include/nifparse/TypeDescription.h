@@ -44,7 +44,7 @@ namespace nifparse {
 		TypeDescription &operator =(const TypeDescription &other);
 
 		bool parse(Opcode opcode, BytecodeReader &bytecode);
-		void addArrayDimension(size_t dimension);
+		void addArrayDimension(StackValue dimension);
 		void reset();
 
 		NIFVariant readValue(SerializerContext &ctx);
@@ -60,14 +60,14 @@ namespace nifparse {
 		inline void setIsTemplate() { m_isTemplate = true; }
 
 	private:
-		NIFVariant doReadValue(SerializerContext &ctx, std::vector<size_t>::iterator it);
+		NIFVariant doReadValue(SerializerContext &ctx, uint32_t outerIndex, std::vector<StackValue>::iterator it);
 		NIFVariant readSingleValue(SerializerContext &ctx);
 
-		void doWriteValue(SerializerContext &ctx, const NIFVariant &value, std::vector<size_t>::iterator it);
+		void doWriteValue(SerializerContext &ctx, const NIFVariant &value, uint32_t outerIndex, std::vector<StackValue>::iterator it);
 		void writeSingleValue(SerializerContext &ctx, const NIFVariant &value);
 
 		Type m_type;
-		std::vector<size_t> m_dimensions;
+		std::vector<StackValue> m_dimensions;
 		Symbol m_typeName;
 		uint32_t m_arg;
 		std::unique_ptr<TypeDescription> m_specialization;
