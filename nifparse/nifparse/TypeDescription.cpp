@@ -267,6 +267,7 @@ namespace nifparse {
 		case Type::UInt:
 		case Type::ULittle32:
 		case Type::StringIndex:
+		case Type::StringOffset:
 		{
 			union {
 				unsigned char bytes[4];
