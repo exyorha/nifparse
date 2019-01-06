@@ -146,7 +146,10 @@ namespace nifparse {
 				if (fieldPresent) {
 					if (m_mode == Mode::Deserialize) {
 						auto value = description.readValue(ctx);
-						dictionary.data.emplace(fieldName, std::move(value));
+						auto result = dictionary.data.try_emplace(fieldName, std::move(value));
+						if (!result.second) {
+							result.first->second = std::move(value);
+						}
 					}
 					else {
 						auto it = dictionary.data.find(fieldName);
@@ -174,7 +177,10 @@ namespace nifparse {
 					ConstantDataStream defaultStream(data, dataLength);
 					SerializerContext defaultContext(ctx.header, defaultStream, true);
 					auto value = description.readValue(defaultContext);
-					dictionary.data.emplace(fieldName, std::move(value));
+					auto result = dictionary.data.try_emplace(fieldName, std::move(value));
+					if (!result.second) {
+						result.first->second = std::move(value);
+					}
 				}
 
 				fieldPresent = true;

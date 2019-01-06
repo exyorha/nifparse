@@ -51,7 +51,10 @@ namespace nifparse {
 	}
 
 	const char *SymbolTable::symbolToString(uint32_t value) const {
-		return m_symbolStrings[value];
+		if (value == 0xFFFFFFFF)
+			return "<NIL>";
+		else
+			return m_symbolStrings[value];
 	}
 
 	size_t SymbolTable::SymbolLookupHash::operator()(const char *string) const {
