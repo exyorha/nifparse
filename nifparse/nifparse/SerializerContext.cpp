@@ -5,7 +5,5 @@ namespace nifparse {
 
 	}
 
-	SerializerContext::~SerializerContext() {
-
-	}
+	SerializerContext::~SerializerContext() = default;
 }

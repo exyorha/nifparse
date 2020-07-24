@@ -7,13 +7,9 @@
 #include <functional>
 
 namespace nifparse {
-	NIFFile::NIFFile() {
+	NIFFile::NIFFile() = default;
 
-	}
-
-	NIFFile::~NIFFile() {
-
-	}
+	NIFFile::~NIFFile() = default;
 
 	void NIFFile::parse(std::iostream &ins) {
 		FileDataStream stream(ins);

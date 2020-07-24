@@ -7,9 +7,7 @@ namespace nifparse {
 
 	}
 
-	ConstantDataStream::~ConstantDataStream() {
-
-	}
+	ConstantDataStream::~ConstantDataStream() = default;
 
 	void ConstantDataStream::readBytes(unsigned char *bytes, size_t size) {
 		if (m_ptr + size > m_end)

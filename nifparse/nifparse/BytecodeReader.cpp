@@ -6,9 +6,7 @@ namespace nifparse {
 
 	}
 
-	BytecodeReader::~BytecodeReader() {
-
-	}
+	BytecodeReader::~BytecodeReader() = default;
 
 	uint8_t BytecodeReader::readByte() {
 		return *m_ptr++;

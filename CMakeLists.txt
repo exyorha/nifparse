@@ -6,10 +6,6 @@ if(NOT RUBY_EXECUTABLE)
 	message(FATAL_ERROR "Ruby is required")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 if(NOT halffloat_SOURCE_DIR)
 	add_subdirectory(halffloat)
 endif()

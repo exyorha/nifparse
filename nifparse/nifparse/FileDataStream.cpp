@@ -6,9 +6,7 @@ namespace nifparse {
 
 	}
 
-	FileDataStream::~FileDataStream() {
-
-	}
+	FileDataStream::~FileDataStream() = default;
 
 	void FileDataStream::readBytes(unsigned char *bytes, size_t size) {
 		m_stream.read(reinterpret_cast<char *>(bytes), size);

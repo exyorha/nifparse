@@ -30,9 +30,7 @@ namespace nifparse {
 		}
 	}
 
-	SymbolTable::~SymbolTable() {
-
-	}
+	SymbolTable::~SymbolTable() = default;
 
 	uint32_t SymbolTable::lookupSymbol(const char *string) const {
 		auto it = m_symbolLookup.find(string);

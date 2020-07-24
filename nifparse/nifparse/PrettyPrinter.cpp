@@ -8,9 +8,7 @@ namespace nifparse {
 
 	}
 
-	PrettyPrinter::~PrettyPrinter() {
-
-	}
+	PrettyPrinter::~PrettyPrinter() = default;
 
 	void PrettyPrinter::print(const NIFVariant &value) {
 		std::visit([=](auto &&val) {

@@ -21,9 +21,7 @@ namespace nifparse {
 
 	}
 
-	TypeDescription::~TypeDescription() {
-		
-	}
+	TypeDescription::~TypeDescription() = default;
 
 	TypeDescription::TypeDescription(const TypeDescription &other) : m_type(Type::Null), m_arg(0), m_isTemplate(false) {
 		*this = other;

@@ -2,6 +2,7 @@ require 'REXML/document'
 require 'pp'
 require 'fileutils'
 require 'strscan'
+require 'stringio'
 
 require_relative 'nif_version'
 require_relative 'nif_type'

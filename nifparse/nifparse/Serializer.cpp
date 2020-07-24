@@ -27,9 +27,7 @@ namespace nifparse {
 		}
 	}
 
-	Serializer::~Serializer() {
-
-	}
+	Serializer::~Serializer() = default;
 
 	void Serializer::serialize(SerializerContext &ctx, Symbol typeSymbol, NIFVariant &value) {
 		Serializer serializer(Mode::Serialize, typeSymbol, value);

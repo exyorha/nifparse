@@ -28,6 +28,7 @@ add_library(nifparse STATIC
 )
 target_include_directories(nifparse PUBLIC include)
 target_link_libraries(nifparse PRIVATE halffloat)
+set_target_properties(nifparse PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/nif_bytecode.cpp
@@ -38,3 +39,4 @@ add_custom_command(
     ${CMAKE_CURRENT_BINARY_DIR}/nif_bytecode.cpp
   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/nifxml/nif.xml
   VERBATIM)
+  
